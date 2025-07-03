@@ -60,7 +60,7 @@ class Notepad:
 
 def main() -> None:
     root = tk.Tk()
-    app = Notepad(root)
+    _ = Notepad(root)
     root.mainloop()
 
 if __name__ == "__main__":
