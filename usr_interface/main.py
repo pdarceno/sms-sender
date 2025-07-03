@@ -11,6 +11,7 @@ TEXT_FILE_TYPE: tuple[str, str] = ("Text files", "*.txt")
 
 import tkinter as tk
 from tkinter import filedialog, messagebox
+from sms_send.main import SMSSender
 
 class Notepad:
     def __init__(self, root: tk.Tk):
@@ -26,6 +27,7 @@ class Notepad:
         self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
         self._setup_menu()
+        self._add_floating_sms_button()
 
     def _setup_menu(self) -> None:
         menu = tk.Menu(self.root)
@@ -57,6 +59,57 @@ class Notepad:
     def clear_text(self) -> None:
         if messagebox.askyesno(CLEAR_CONFIRM_TITLE, CLEAR_CONFIRM_MESSAGE):
             self.text.delete("1.0", tk.END)
+
+    def _add_floating_sms_button(self) -> None:
+        self.sms_button = tk.Button(self.root, text="Send SMS", bg="#4CAF50", fg="white", command=self._show_sms_send_ui)
+        self.sms_button.place(relx=0.01, rely=0.95, anchor="sw")
+
+    def _show_sms_send_ui(self) -> None:
+        self.sms_window = tk.Toplevel(self.root)
+        self.sms_window.title("Send SMS")
+        self.sms_window.geometry("300x200")
+        self.sms_window.transient(self.root)
+        self.sms_window.grab_set()
+
+        tk.Label(self.sms_window, text="Send Type:").pack(pady=(10, 0))
+        self.send_type = tk.StringVar(value="test")
+        test_radio = tk.Radiobutton(self.sms_window, text="Testing Send", variable=self.send_type, value="test", command=self._update_sms_ui)
+        live_radio = tk.Radiobutton(self.sms_window, text="Live Send", variable=self.send_type, value="live", command=self._update_sms_ui)
+        test_radio.pack(anchor="w", padx=20)
+        live_radio.pack(anchor="w", padx=20)
+
+        self.input_frame = tk.Frame(self.sms_window)
+        self.input_frame.pack(fill="x", pady=10)
+        self._update_sms_ui()
+
+        send_btn = tk.Button(self.sms_window, text="Send", command=self._handle_sms_send)
+        send_btn.pack(pady=10)
+
+    def _update_sms_ui(self) -> None:
+        for widget in self.input_frame.winfo_children():
+            widget.destroy()
+        if self.send_type.get() == "test":
+            tk.Label(self.input_frame, text="Test Phone Number:").pack(anchor="w", padx=10)
+            self.test_number_entry = tk.Entry(self.input_frame)
+            self.test_number_entry.pack(fill="x", padx=10)
+        else:
+            tk.Label(self.input_frame, text="Simulating send (live mode)").pack(anchor="w", padx=10)
+
+    def _handle_sms_send(self) -> None:
+        template = self.text.get("1.0", tk.END).strip()
+        sender = SMSSender(template)
+        message = sender.replace_keywords("123456", "$100.00", "John Doe")
+        if self.send_type.get() == "test":
+            number = self.test_number_entry.get()
+            if not number:
+                messagebox.showerror("Error", "Please enter a test phone number.")
+                return
+            # Simulate sending SMS (testing)
+            messagebox.showinfo("Test SMS", f"Would send to: {number}\nMessage: {message}")
+        else:
+            # Simulate live send
+            messagebox.showinfo("Live SMS", f"Simulating live send.\nMessage: {message}")
+        self.sms_window.destroy()
 
 def main() -> None:
     root = tk.Tk()

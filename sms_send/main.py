@@ -17,9 +17,6 @@ class SMSSender:
         self.message_template = message_template
 
     def replace_keywords(self, account_no: str, ar_balance: str, customer_name: Optional[str] = None) -> str:
-        """
-        Replace placeholders in the template with actual values.
-        """
         message = self.message_template.replace("account_no", account_no).replace("ar_balance", ar_balance)
         if customer_name:
             message = message.replace("customer_name", customer_name)
@@ -33,9 +30,6 @@ class SMSSender:
         url: str,
         origin: str = "REMINDER",
     ) -> bool:
-        """
-        Send SMS via API with MAC-based authentication.
-        """
         ts = int(time.time())
         nonce = secrets.token_urlsafe(7)
         mac_string = self._build_mac_string(ts, nonce)
@@ -64,9 +58,6 @@ class SMSSender:
         }
 
     def _is_successful(self, response: requests.Response) -> bool:
-        """
-        Check if the response indicates a successfully queued/delivered SMS.
-        """
         if response.status_code == 200:
             try:
                 data = response.json()
@@ -84,9 +75,6 @@ class SMSSender:
         return base64.b64encode(digest).decode()
 
 def main() -> None:
-    """
-    Main function to demonstrate the SMS sending functionality.
-    """
     template = "Dear customer_name, your account account_no has a balance of ar_balance."
     sender = SMSSender(template)
     message = sender.replace_keywords("123456", "$100.00", "John Doe")
