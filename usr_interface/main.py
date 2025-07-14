@@ -93,9 +93,30 @@ class Notepad:
             self.test_number_entry = tk.Entry(self.input_frame)
             self.test_number_entry.pack(fill="x", padx=10)
         else:
-            tk.Label(self.input_frame, text="Simulating send (live mode)").pack(anchor="w", padx=10)
+            # Live send: only file picker for Excel/CSV
+            tk.Label(self.input_frame, text="Excel/CSV File:").pack(anchor="w", padx=10)
+            self.file_path_var = tk.StringVar()
+            file_frame = tk.Frame(self.input_frame)
+            file_frame.pack(fill="x", padx=10)
+            self.file_entry = tk.Entry(file_frame, textvariable=self.file_path_var)
+            self.file_entry.pack(side="left", fill="x", expand=True)
+            tk.Button(file_frame, text="Browse", command=self._browse_file).pack(side="left", padx=(5,0))
+
+    def _browse_file(self):
+        filetypes = [
+            ("Excel files", "*.xlsx *.xls"),
+            ("CSV files", "*.csv"),
+        ]
+        path = filedialog.askopenfilename(filetypes=filetypes)
+        if path:
+            self.file_path_var.set(path)
 
     def _handle_sms_send(self) -> None:
+        import pandas as pd
+        # Set your API key, secret, and url here (all users share the same values)
+        API_KEY = "YOUR_API_KEY_HERE"  # <-- Replace with your actual API key
+        API_SECRET = "YOUR_API_SECRET_HERE"  # <-- Replace with your actual API secret
+        API_URL = "https://api.smsglobal.com/v2/sms/"  # <-- Replace with your actual API url if different
         template = self.text.get("1.0", tk.END).strip()
         sender = SMSSender(template)
         message = sender.replace_keywords("123456", "$100.00", "John Doe")
@@ -107,8 +128,36 @@ class Notepad:
             # Simulate sending SMS (testing)
             messagebox.showinfo("Test SMS", f"Would send to: {number}\nMessage: {message}")
         else:
-            # Simulate live send
-            messagebox.showinfo("Live SMS", f"Simulating live send.\nMessage: {message}")
+            file_path = self.file_path_var.get()
+            if not file_path:
+                messagebox.showerror("Error", "Please select an Excel or CSV file.")
+                return
+            # Read Excel/CSV and send SMS to each Account No
+            try:
+                if file_path.lower().endswith(('.xlsx', '.xls')):
+                    df = pd.read_excel(file_path)
+                elif file_path.lower().endswith('.csv'):
+                    df = pd.read_csv(file_path)
+                else:
+                    messagebox.showerror("Error", "Unsupported file type. Please select an Excel or CSV file.")
+                    return
+                if 'Account No' not in df.columns:
+                    messagebox.showerror("Error", "File must contain a column named 'Account No'.")
+                    return
+                failed = []
+                for account_no in df['Account No']:
+                    # You may want to map account_no to a phone number if needed
+                    sms_message = sender.replace_keywords(str(account_no), "$100.00", "John Doe")
+                    sender.message_template = sms_message
+                    success = sender.send_sms(str(account_no), API_KEY, API_SECRET, API_URL)
+                    if not success:
+                        failed.append(account_no)
+                if not failed:
+                    messagebox.showinfo("Live SMS", "All SMS messages sent successfully.")
+                else:
+                    messagebox.showwarning("Live SMS", f"Failed to send SMS to: {', '.join(map(str, failed))}")
+            except Exception as e:
+                messagebox.showerror("Live SMS", f"Error sending SMS: {e}")
         self.sms_window.destroy()
 
 def main() -> None:
