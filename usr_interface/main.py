@@ -1,3 +1,4 @@
+from db_read.main import populate_excel
 NOTEPAD_TITLE: str = "Notepad"
 NOTEPAD_GEOMETRY: str = "800x600"
 FILE_MENU_LABEL: str = "File"
@@ -12,6 +13,7 @@ TEXT_FILE_TYPE: tuple[str, str] = ("Text files", "*.txt")
 import tkinter as tk
 from tkinter import filedialog, messagebox
 from sms_send.main import SMSSender
+import pandas as pd
 
 class Notepad:
     def __init__(self, root: tk.Tk):
@@ -111,15 +113,24 @@ class Notepad:
         if path:
             self.file_path_var.set(path)
 
-    def _handle_sms_send(self) -> None:
+    @staticmethod
+    def get_customer_phone(phone, phone2):
         import pandas as pd
+        # Ensure any NaNs from pandas are converted to 'nan'
+        phone = 'nan' if pd.isna(phone) else str(phone).strip().replace(" ", "").replace(".", "")
+        phone2 = 'nan' if pd.isna(phone2) else str(phone2).strip().replace(" ", "").replace(".", "")
+        # Choose the first phone if not 'nan', otherwise the second
+        dest = phone if phone != 'nan' else phone2
+        return dest
+
+    def _handle_sms_send(self) -> None:
         # Set your API key, secret, and url here (all users share the same values)
         API_KEY = "YOUR_API_KEY_HERE"  # <-- Replace with your actual API key
         API_SECRET = "YOUR_API_SECRET_HERE"  # <-- Replace with your actual API secret
         API_URL = "https://api.smsglobal.com/v2/sms/"  # <-- Replace with your actual API url if different
         template = self.text.get("1.0", tk.END).strip()
         sender = SMSSender(template)
-        message = sender.replace_keywords("123456", "$100.00", "John Doe")
+        message = sender.replace_keywords("123456", "100.00", "John Doe")
         if self.send_type.get() == "test":
             number = self.test_number_entry.get()
             if not number:
@@ -131,6 +142,12 @@ class Notepad:
             file_path = self.file_path_var.get()
             if not file_path:
                 messagebox.showerror("Error", "Please select an Excel or CSV file.")
+                return
+            # Update the Excel file with DB data before sending SMS
+            try:
+                populate_excel(file_path, test_flag=False)
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to update Excel from DB: {e}")
                 return
             # Read Excel/CSV and send SMS to each Account No
             try:
@@ -145,11 +162,17 @@ class Notepad:
                     messagebox.showerror("Error", "File must contain a column named 'Account No'.")
                     return
                 failed = []
-                for account_no in df['Account No']:
-                    # You may want to map account_no to a phone number if needed
-                    sms_message = sender.replace_keywords(str(account_no), "$100.00", "John Doe")
+                for idx, row in df.iterrows():
+                    account_no = str(row['Account No'])
+                    # Try to get customer_name and ar_balance from the row, fallback to blank if missing
+                    customer_name = str(row['Customer Name']) if 'Customer Name' in row and pd.notnull(row['Customer Name']) else ""
+                    ar_balance = str(row['Arrears Balance']) if 'Arrears Balance' in row and pd.notnull(row['Arrears Balance']) else ""
+                    phone = row['Phone'] if 'Phone' in row else None
+                    phone2 = row['Phone2'] if 'Phone2' in row else None
+                    destination = self.get_customer_phone(phone, phone2)
+                    sms_message = sender.replace_keywords(account_no, ar_balance, customer_name)
                     sender.message_template = sms_message
-                    success = sender.send_sms(str(account_no), API_KEY, API_SECRET, API_URL)
+                    success = sender.send_sms(destination, API_KEY, API_SECRET, API_URL)
                     if not success:
                         failed.append(account_no)
                 if not failed:
