@@ -5,6 +5,7 @@ import secrets
 import time
 import urllib3
 from typing import Optional
+from constants import SMSGLOBAL_API_KEY, SMSGLOBAL_API_SECRET, SMSGLOBAL_API_URL
 
 import requests
 

@@ -1,4 +1,3 @@
-from db_read.main import populate_excel
 NOTEPAD_TITLE: str = "Notepad"
 NOTEPAD_GEOMETRY: str = "800x600"
 FILE_MENU_LABEL: str = "File"
@@ -14,6 +13,8 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 from sms_send.main import SMSSender
 import pandas as pd
+from db_read.main import populate_excel
+from constants import SMSGLOBAL_API_KEY, SMSGLOBAL_API_SECRET, SMSGLOBAL_API_URL
 
 class Notepad:
     def __init__(self, root: tk.Tk):
@@ -124,10 +125,6 @@ class Notepad:
         return dest
 
     def _handle_sms_send(self) -> None:
-        # Set your API key, secret, and url here (all users share the same values)
-        API_KEY = "YOUR_API_KEY_HERE"  # <-- Replace with your actual API key
-        API_SECRET = "YOUR_API_SECRET_HERE"  # <-- Replace with your actual API secret
-        API_URL = "https://api.smsglobal.com/v2/sms/"  # <-- Replace with your actual API url if different
         template = self.text.get("1.0", tk.END).strip()
         sender = SMSSender(template)
         message = sender.replace_keywords("123456", "100.00", "John Doe")
@@ -136,8 +133,12 @@ class Notepad:
             if not number:
                 messagebox.showerror("Error", "Please enter a test phone number.")
                 return
-            # Simulate sending SMS (testing)
-            messagebox.showinfo("Test SMS", f"Would send to: {number}\nMessage: {message}")
+            # Actually send SMS to the test number
+            success = sender.send_sms(number, SMSGLOBAL_API_KEY, SMSGLOBAL_API_SECRET, SMSGLOBAL_API_URL)
+            if success:
+                messagebox.showinfo("Test SMS", f"SMS sent to: {number}\nMessage: {message}")
+            else:
+                messagebox.showerror("Test SMS", f"Failed to send SMS to: {number}")
         else:
             file_path = self.file_path_var.get()
             if not file_path:
@@ -172,7 +173,7 @@ class Notepad:
                     destination = self.get_customer_phone(phone, phone2)
                     sms_message = sender.replace_keywords(account_no, ar_balance, customer_name)
                     sender.message_template = sms_message
-                    success = sender.send_sms(destination, API_KEY, API_SECRET, API_URL)
+                    success = sender.send_sms(destination, SMSGLOBAL_API_KEY, SMSGLOBAL_API_SECRET, SMSGLOBAL_API_URL)
                     if not success:
                         failed.append(account_no)
                 if not failed:
