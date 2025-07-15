@@ -77,7 +77,7 @@ class SMSSender:
 def main() -> None:
     template = "Dear customer_name, your account account_no has a balance of ar_balance."
     sender = SMSSender(template)
-    message = sender.replace_keywords("123456", "$100.00", "John Doe")
+    message = sender.replace_keywords("123456", "100.00", "John Doe")
     print("Generated message:", message)
 
 if __name__ == "__main__":

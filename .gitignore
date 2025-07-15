@@ -1,0 +1,11 @@
+
+# Ignore all __pycache__ folders and their contents
+__pycache__/
+**/__pycache__/
+
+# Ignore everything in tests/ directory
+tests/
+
+# Ignore constants.py anywhere in the repo
+constants.py
+**/constants.py
