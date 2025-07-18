@@ -143,9 +143,13 @@ class Notepad:
         for widget in self.input_frame.winfo_children():
             widget.destroy()
         if self.send_type.get() == "test":
-            tk.Label(self.input_frame, text="Test Phone Number:").pack(anchor="w", padx=10)
-            self.test_number_entry = tk.Entry(self.input_frame)
-            self.test_number_entry.pack(fill="x", padx=10)
+            tk.Label(self.input_frame, text="Test Destination:").pack(anchor="w", padx=10)
+            self.test_dest_var = tk.StringVar()
+            test_names = list(TEST_DESTINATIONS.keys())
+            if test_names:
+                self.test_dest_var.set(test_names[0])
+            self.test_dest_dropdown = tk.OptionMenu(self.input_frame, self.test_dest_var, *test_names)
+            self.test_dest_dropdown.pack(fill="x", padx=10)
         else:
             # Live send: only file picker for Excel/CSV
             tk.Label(self.input_frame, text="Excel/CSV File:").pack(anchor="w", padx=10)
@@ -200,16 +204,17 @@ class Notepad:
                 ar_balance = "100.00"
                 customer_name = "John Doe"
             message = sender.replace_keywords(account_no, ar_balance, customer_name)
-            number = self.test_number_entry.get()
+            test_name = self.test_dest_var.get() if hasattr(self, 'test_dest_var') else None
+            number = TEST_DESTINATIONS.get(test_name, "") if test_name else ""
             if not number:
-                messagebox.showerror("Error", "Please enter a test phone number.")
+                messagebox.showerror("Error", "Please select a test destination.")
                 return
             # Actually send SMS to the test number
             success = sender.send_sms(number, SMSGLOBAL_API_KEY, SMSGLOBAL_API_SECRET, SMSGLOBAL_API_URL)
             if success:
-                messagebox.showinfo("Test SMS", f"SMS sent to: {number}\n\nMessage:\n\n {message}")
+                messagebox.showinfo("Test SMS", f"SMS sent to: {test_name} ({number})\n\nMessage:\n\n {message}")
             else:
-                messagebox.showerror("Test SMS", f"Failed to send SMS to: {number}")
+                messagebox.showerror("Test SMS", f"Failed to send SMS to: {test_name} ({number})")
         else:
             file_path = self.file_path_var.get()
             if not file_path:
