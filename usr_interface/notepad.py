@@ -1,4 +1,3 @@
-
 NOTEPAD_TITLE: str = "Notepad"
 NOTEPAD_GEOMETRY: str = "800x600"
 FILE_MENU_LABEL: str = "File"
@@ -73,7 +72,7 @@ class Notepad:
     def _show_sms_send_ui(self) -> None:
         self.sms_window = tk.Toplevel(self.root)
         self.sms_window.title("Send SMS")
-        self.sms_window.geometry("300x200")
+        self.sms_window.geometry("300x250")
         self.sms_window.transient(self.root)
         self.sms_window.grab_set()
 
@@ -88,8 +87,55 @@ class Notepad:
         self.input_frame.pack(fill="x", pady=10)
         self._update_sms_ui()
 
-        send_btn = tk.Button(self.sms_window, text="Send", command=self._handle_sms_send)
-        send_btn.pack(pady=10)
+        btn_frame = tk.Frame(self.sms_window)
+        btn_frame.pack(pady=10)
+        send_btn = tk.Button(btn_frame, text="Send", command=self._handle_sms_send)
+        send_btn.pack(side="left", padx=5)
+        schedule_btn = tk.Button(btn_frame, text="Schedule SMS", command=self._show_schedule_dialog)
+        schedule_btn.pack(side="left", padx=5)
+
+    def _show_schedule_dialog(self):
+        import datetime
+        dialog = tk.Toplevel(self.sms_window)
+        dialog.title("Schedule SMS")
+        dialog.geometry("300x180")
+        dialog.transient(self.sms_window)
+        dialog.grab_set()
+        tk.Label(dialog, text="Schedule Date (YYYY-MM-DD):").pack(pady=(10,0))
+        date_entry = tk.Entry(dialog)
+        date_entry.pack(fill="x", padx=10)
+        tk.Label(dialog, text="Schedule Time (HH:MM, 24h):").pack(pady=(10,0))
+        time_entry = tk.Entry(dialog)
+        time_entry.pack(fill="x", padx=10)
+        def on_schedule():
+            date_str = date_entry.get().strip()
+            time_str = time_entry.get().strip()
+            try:
+                dt = datetime.datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
+                scheduled_time = dt.isoformat(timespec='minutes')
+            except Exception:
+                messagebox.showerror("Invalid Input", "Please enter valid date and time.")
+                return
+            template = self.text.get("1.0", tk.END).strip()
+            if self.send_type.get() == "test":
+                number = self.test_number_entry.get()
+                if not number:
+                    messagebox.showerror("Error", "Please enter a test phone number.")
+                    return
+                from usr_interface.scheduler import schedule_sms
+                schedule_sms(number, template, scheduled_time)
+                messagebox.showinfo("Scheduled", f"Test SMS scheduled for {number} at {scheduled_time}")
+            else:
+                file_path = self.file_path_var.get()
+                if not file_path:
+                    messagebox.showerror("Error", "Please select an Excel or CSV file.")
+                    return
+                from usr_interface.scheduler import schedule_batch_sms
+                schedule_batch_sms(file_path, template, scheduled_time, mode="live")
+                messagebox.showinfo("Scheduled", f"Live SMS batch scheduled for {scheduled_time}")
+            dialog.destroy()
+            self.sms_window.destroy()
+        tk.Button(dialog, text="Schedule", command=on_schedule).pack(pady=15)
 
     def _update_sms_ui(self) -> None:
         for widget in self.input_frame.winfo_children():
@@ -138,8 +184,8 @@ class Notepad:
     def _handle_sms_send(self) -> None:
         template = self.text.get("1.0", tk.END).strip()
         sender = SMSSender(template)
-        message = sender.replace_keywords("123456", "100.00", "John Doe")
         if self.send_type.get() == "test":
+            message = sender.replace_keywords("123456", "100.00", "John Doe")
             number = self.test_number_entry.get()
             if not number:
                 messagebox.showerror("Error", "Please enter a test phone number.")
@@ -147,7 +193,7 @@ class Notepad:
             # Actually send SMS to the test number
             success = sender.send_sms(number, SMSGLOBAL_API_KEY, SMSGLOBAL_API_SECRET, SMSGLOBAL_API_URL)
             if success:
-                messagebox.showinfo("Test SMS", f"SMS sent to: {number}\nMessage: {message}")
+                messagebox.showinfo("Test SMS", f"SMS sent to: {number}\n\nMessage:\n {message}")
             else:
                 messagebox.showerror("Test SMS", f"Failed to send SMS to: {number}")
         else:

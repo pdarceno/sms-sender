@@ -9,3 +9,5 @@ tests/
 # Ignore constants.py anywhere in the repo
 constants.py
 **/constants.py
+
+scheduled_sms.db

@@ -6,11 +6,28 @@ class ScheduledSMSViewer(tk.Toplevel):
     def __init__(self, master=None):
         super().__init__(master)
         self.title("Scheduled SMS Viewer")
-        self.geometry("700x400")
-        self.tree = ttk.Treeview(self, columns=("id", "destination", "message", "scheduled_time", "status", "created_at"), show="headings")
+        self.geometry("1100x400")
+        self.tree = ttk.Treeview(
+            self,
+            columns=(
+                "id", "destination", "message", "file_path", "message_template", "scheduled_time", "status", "created_at", "mode"
+            ),
+            show="headings"
+        )
+        col_widths = {
+            "id": 40,
+            "destination": 120,
+            "message": 200,
+            "file_path": 180,
+            "message_template": 180,
+            "scheduled_time": 120,
+            "status": 80,
+            "created_at": 120,
+            "mode": 60
+        }
         for col in self.tree["columns"]:
             self.tree.heading(col, text=col)
-            self.tree.column(col, width=100)
+            self.tree.column(col, width=col_widths.get(col, 100))
         self.tree.pack(fill=tk.BOTH, expand=True)
         self._populate()
         btn_frame = tk.Frame(self)
