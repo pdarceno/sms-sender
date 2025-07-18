@@ -1,6 +1,6 @@
 **REMINDER NOTICE**
 
-Your Resimac Loan (account_no) has an overdue balance that requires immediate attention. To avoid additional fees, charges, and enforcement action, please make a payment of $ar_balance_15 (including a 1.5% merchant service fee) without delay via credit/debit card at the following link:
+Your Resimac Loan (account_no) has an overdue balance that requires immediate attention. To avoid additional fees, charges, and enforcement action, please make a payment of $ar_balance*1.015 (including a 1.5% merchant service fee) without delay via credit/debit card at the following link:
 
 https://www.payway.com.au/MakePayment?BillerCode=248096
  
@@ -11,3 +11,5 @@ If you've already paid or have an arrangement, please disregard this message.
 Act now to avoid further action on your account.
  
 Resimac Team
+
+

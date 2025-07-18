@@ -25,6 +25,28 @@ from constants import (
 from usr_interface.scheduler import schedule_sms, schedule_batch_sms
 from usr_interface.viewer import ScheduledSMSViewer
 class Notepad:
+    INSTRUCTIONS = (
+        """
+        How to Use the SMS Sender App\n\n"
+        "1. Writing Your Message:\n"
+        "   - Use the editor to compose your SMS template.\n"
+        "   - You can use the following keywords in your message:\n"
+        "     * account_no — will be replaced with the customer's account number.\n"
+        "     * ar_balance — will be replaced with the customer's balance.\n"
+        "     * customer_name — will be replaced with the customer's name.\n\n"
+        "2. Calculations on ar_balance:\n"
+        "   - You can use a formula for ar_balance when sending SMS.\n"
+        "     Example: To add 5, use ar_balance+5. To multiply by 1.015, use ar_balance*1.015.\n"
+        "   - The formula will be applied to the balance before inserting into the message.\n\n"
+        "3. Test vs Live Sending:\n"
+        "   - Test Send: Sends SMS to a test number using sample data from the test database.\n"
+        "   - Live Send: Sends SMS to all valid numbers in your selected Excel/CSV file, using live database data.\n\n"
+        "4. Scheduling:\n"
+        "   - You can schedule SMS for later delivery (both test and live).\n\n"
+        "5. Highlighting Keywords:\n"
+        "   - Keywords (account_no, ar_balance, customer_name) and formulas (e.g., ar_balance*1.015) in your template will be highlighted for easy identification.\n\n"
+        """
+    )
     def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title(NOTEPAD_TITLE)
@@ -37,8 +59,50 @@ class Notepad:
         self.text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
+        self._add_instructions_button()
         self._setup_menu()
         self._add_floating_sms_button()
+        self._setup_highlighting()
+    def _add_instructions_button(self):
+        btn = tk.Button(self.root, text="Instructions", command=self._show_instructions, bg="#2196F3", fg="white")
+        btn.place(relx=0.99, rely=0.01, anchor="ne")
+
+    def _show_instructions(self):
+        win = tk.Toplevel(self.root)
+        win.title("Instructions")
+        win.geometry("600x500")
+        txt = tk.Text(win, wrap="word", font=("Consolas", 11), bg="#f9f9f9")
+        txt.insert("1.0", self.INSTRUCTIONS)
+        txt.config(state="disabled")
+        txt.pack(fill="both", expand=True, padx=10, pady=10)
+    def _setup_highlighting(self):
+        # Highlight keywords and formulas in the text widget
+        self.text.tag_configure("keyword", foreground="#d2691e", font=("Consolas", 12, "bold"))
+        self.text.tag_configure("formula", foreground="#00796b", font=("Consolas", 12, "bold"))
+        self.text.bind("<KeyRelease>", self._highlight_keywords)
+        self._highlight_keywords()
+
+    def _highlight_keywords(self, event=None):
+        import re
+        content = self.text.get("1.0", tk.END)
+        self.text.tag_remove("keyword", "1.0", tk.END)
+        self.text.tag_remove("formula", "1.0", tk.END)
+        # Highlight keywords
+        for kw in ["account_no", "ar_balance", "customer_name"]:
+            start = "1.0"
+            while True:
+                idx = self.text.search(kw, start, stopindex=tk.END)
+                if not idx:
+                    break
+                end = f"{idx}+{len(kw)}c"
+                self.text.tag_add("keyword", idx, end)
+                start = end
+        # Highlight ar_balance formulas (e.g., ar_balance*1.015, ar_balance+5)
+        formula_pattern = r"ar_balance\s*([*+/\-])\s*[0-9.]+"
+        for match in re.finditer(formula_pattern, content):
+            start_idx = f"1.0+{match.start()}c"
+            end_idx = f"1.0+{match.end()}c"
+            self.text.tag_add("formula", start_idx, end_idx)
 
     def _setup_menu(self) -> None:
         menu = tk.Menu(self.root)
@@ -59,6 +123,7 @@ class Notepad:
                 self.text.delete("1.0", tk.END)
                 self.text.insert(tk.END, file.read())
             self.root.title(f"{NOTEPAD_TITLE} - {filepath}")
+            self._highlight_keywords()  # Ensure highlighting after loading
 
     def save_file(self) -> None:
         filepath = filedialog.asksaveasfilename(defaultextension=".txt",
@@ -67,6 +132,7 @@ class Notepad:
             with open(filepath, "w", encoding="utf-8") as file:
                 file.write(self.text.get("1.0", tk.END))
             self.root.title(f"{NOTEPAD_TITLE} - {filepath}")
+            self._highlight_keywords()  # Optional: re-highlight after save
 
     def clear_text(self) -> None:
         if messagebox.askyesno(CLEAR_CONFIRM_TITLE, CLEAR_CONFIRM_MESSAGE):
@@ -188,6 +254,18 @@ class Notepad:
         dest = phone if phone != 'nan' else phone2
         return dest
 
+    @staticmethod
+    def get_customer_name(customer_name):
+        if customer_name == "nan":
+            customer_name = "customer"
+        else:
+            if len(customer_name.split(";")[0].split(",")) > 1:
+                customer_name = customer_name.split(";")[0].split(",")[1].strip()
+            else:
+                customer_name = customer_name.split(";")[0].split(",")[0]
+                
+        return customer_name
+
     def _handle_sms_send(self) -> None:
         template = self.text.get("1.0", tk.END).strip()
         sender = SMSSender(template)
@@ -200,7 +278,7 @@ class Notepad:
                 row = df_sample.iloc[0]
                 account_no = str(row[ACCOUNT_NO_COL]) if ACCOUNT_NO_COL in row else "123456"
                 ar_balance = str(row[ARREARS_BALANCE_COL]) if ARREARS_BALANCE_COL in row else "100.00"
-                customer_name = str(row[CUSTOMER_NAME_COL]) if CUSTOMER_NAME_COL in row else "John Doe"
+                customer_name = Notepad.get_customer_name(str(row[CUSTOMER_NAME_COL])) if CUSTOMER_NAME_COL in row else "John Doe"
             except Exception:
                 account_no = "123456"
                 ar_balance = "100.00"
@@ -252,7 +330,7 @@ class Notepad:
                         # Only send if conditions are met
                         if (ar_balance > 0) and (not business_code.endswith("W")) and (business_code not in WHOLESALE_BUSINESS_CODES):
                             account_no = str(row[ACCOUNT_NO_COL])
-                            customer_name = str(row[CUSTOMER_NAME_COL]) if CUSTOMER_NAME_COL in row and pd.notnull(row[CUSTOMER_NAME_COL]) else ""
+                            customer_name = Notepad.get_customer_name(str(row[CUSTOMER_NAME_COL])) if CUSTOMER_NAME_COL in row and pd.notnull(row[CUSTOMER_NAME_COL]) else ""
                             phone = row[PHONE_COL] if PHONE_COL in row else None
                             phone2 = row[PHONE2_COL] if PHONE2_COL in row else None
                             destination = self.get_customer_phone(phone, phone2)

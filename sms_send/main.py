@@ -4,6 +4,7 @@ import hmac
 import secrets
 import time
 import urllib3
+import re
 from typing import Optional
 from constants import SMSGLOBAL_API_KEY, SMSGLOBAL_API_SECRET, SMSGLOBAL_API_URL
 
@@ -18,7 +19,29 @@ class SMSSender:
         self.message_template = message_template
 
     def replace_keywords(self, account_no: str, ar_balance: str, customer_name: Optional[str] = None) -> str:
-        message = self.message_template.replace("account_no", account_no).replace("ar_balance", ar_balance)
+        # Look for ar_balance formulas in the template, e.g., ar_balance*1.015, ar_balance+5
+        def compute_formula(match):
+            expr = match.group(0)
+            try:
+                allowed_names = {"ar_balance": float(ar_balance)}
+                value = eval(expr, {"__builtins__": {}}, allowed_names)
+                value = round(value + 1e-8, 2)  # round to nearest hundredths, avoid float issues
+                return f"{value:.2f}"
+            except Exception:
+                return str(ar_balance)
+
+        # Replace formulas first
+        formula_pattern = r"ar_balance\s*[*+/\-]\s*[0-9.]+"
+        message = re.sub(formula_pattern, compute_formula, self.message_template)
+        # Replace plain ar_balance (not part of a formula)
+        def replace_plain_ar_balance(m):
+            try:
+                value = round(float(ar_balance) + 1e-8, 2)
+                return f"{value:.2f}"
+            except Exception:
+                return str(ar_balance)
+        message = re.sub(r"ar_balance(?!\s*[*+/\-])", replace_plain_ar_balance, message)
+        message = message.replace("account_no", account_no)
         if customer_name:
             message = message.replace("customer_name", customer_name)
         return message
@@ -78,8 +101,16 @@ class SMSSender:
 def main() -> None:
     template = "Dear customer_name, your account account_no has a balance of ar_balance."
     sender = SMSSender(template)
-    message = sender.replace_keywords("123456", "100.00", "John Doe")
-    print("Generated message:", message)
+    # Example with formula: ar_balance * 1.015
+    template_formula = "Dear customer_name, your account account_no has a balance of ar_balance*1.015."
+    sender_formula = SMSSender(template_formula)
+    message = sender_formula.replace_keywords("123456", "100.00", "John Doe")
+    print("Generated message with formula:", message)
+    # Example with formula: ar_balance + 5
+    template_plus = "Dear customer_name, your account account_no has a balance of ar_balance+5."
+    sender_plus = SMSSender(template_plus)
+    message2 = sender_plus.replace_keywords("123456", "100.00", "John Doe")
+    print("Generated message with +5:", message2)
 
 if __name__ == "__main__":
     main()
