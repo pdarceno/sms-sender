@@ -15,6 +15,8 @@ from tkinter import filedialog, messagebox
 from sms_send.main import SMSSender
 import pandas as pd
 from db_read.main import populate_excel
+from db_write.main import diary_write
+from pathlib import Path
 from constants import (
     SMSGLOBAL_API_KEY, SMSGLOBAL_API_SECRET, SMSGLOBAL_API_URL,
     WHOLESALE_BUSINESS_CODES, ACCOUNT_NO_COL, ARREARS_BALANCE_COL,
@@ -212,6 +214,10 @@ class Notepad:
             # Actually send SMS to the test number
             success = sender.send_sms(number, SMSGLOBAL_API_KEY, SMSGLOBAL_API_SECRET, SMSGLOBAL_API_URL)
             if success:
+                # Write to DB after sending test SMS
+                sql_file = str(Path('db_write/write_all.sql').resolve())
+                params = [account_no, message]
+                diary_write(sql_file, params, test_flag=True)
                 messagebox.showinfo("Test SMS", f"SMS sent to: {test_name} ({number})\n\nMessage:\n\n {message}")
             else:
                 messagebox.showerror("Test SMS", f"Failed to send SMS to: {test_name} ({number})")
@@ -253,7 +259,11 @@ class Notepad:
                             sms_message = sender.replace_keywords(account_no, ar_balance, customer_name)
                             sender.message_template = sms_message
                             success = sender.send_sms(destination, SMSGLOBAL_API_KEY, SMSGLOBAL_API_SECRET, SMSGLOBAL_API_URL)
-                            if not success:
+                            if success:
+                                sql_file = str(Path('db_write/write_all.sql').resolve())
+                                params = [account_no, sms_message]
+                                diary_write(sql_file, params, test_flag=False)
+                            else:
                                 failed.append(account_no)
                     except Exception as e:
                         failed.append(str(row.get(ACCOUNT_NO_COL, idx)))

@@ -16,7 +16,9 @@ def load_sql_query(file_path):
 
 # Function to run SQL query for account numbers
 def fetch_additional_details(account_numbers, test_flag):
-    # Set up the connection string (adjust for your database configuration)
+    # Set up the connection string,
+
+    # Since its reading, it could probably get away with using the prod connection string
     if test_flag:
         connect_string = CONNECTION_STRING_TEST
     else:
