@@ -9,4 +9,9 @@ constants.py
 
 venv/
 
+/build/
+/dist/
+*.spec
+__pycache__/
+
 scheduled_sms.db
