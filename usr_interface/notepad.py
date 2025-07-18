@@ -166,7 +166,7 @@ class Notepad:
     def _add_scheduler_menu(self, menu):
         scheduler_menu = tk.Menu(menu, tearoff=0)
         scheduler_menu.add_command(label="View Scheduled SMS", command=self._open_scheduled_sms_viewer)
-        menu.add_cascade(label="Scheduler", menu=scheduler_menu)
+        menu.add_cascade(label="Scheduler (untested)", menu=scheduler_menu)
 
     def _open_scheduled_sms_viewer(self):
         ScheduledSMSViewer(self.root)
@@ -193,7 +193,7 @@ class Notepad:
             # Actually send SMS to the test number
             success = sender.send_sms(number, SMSGLOBAL_API_KEY, SMSGLOBAL_API_SECRET, SMSGLOBAL_API_URL)
             if success:
-                messagebox.showinfo("Test SMS", f"SMS sent to: {number}\n\nMessage:\n {message}")
+                messagebox.showinfo("Test SMS", f"SMS sent to: {number}\n\nMessage:\n\n {message}")
             else:
                 messagebox.showerror("Test SMS", f"Failed to send SMS to: {number}")
         else:
