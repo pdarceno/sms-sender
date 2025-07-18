@@ -2,6 +2,9 @@ import pandas as pd
 from sqlalchemy import create_engine
 import os
 import traceback
+from constants import CONNECTION_STRING_TEST, CONNECTION_STRING_TEST, 
+                ACCOUNT_NO_COL, ARREARS_BALANCE_COL, BUSINESS_CODE_COL, 
+                PHONE_COL, PHONE2_COL, CUSTOMER_NAME_COL
 
 # Function to load the SQL query from a file
 def load_sql_query(file_path):
@@ -13,13 +16,12 @@ def load_sql_query(file_path):
 def fetch_additional_details(account_numbers, test_flag):
     # Set up the connection string (adjust for your database configuration)
     if test_flag:
-        # connection_string = "mssql+pyodbc://devsqlraf01/IA_RB2?driver=SQL+Server&trusted_connection=yes"
-        connection_string = "mssql+pyodbc://SYDSQLRAF/IA?driver=SQL+Server&trusted_connection=yes"
+        connect_string = CONNECTION_STRING_TEST
     else:
-        connection_string = "mssql+pyodbc://SYDSQLRAF/IA?driver=SQL+Server&trusted_connection=yes"
+        connect_string = CONNECTION_STRING
     
     # Create the SQLAlchemy engine
-    engine = create_engine(connection_string)
+    engine = create_engine(connect_string)
 
     # Convert list of account numbers into a string formatted for SQL IN clause
     formatted_account_numbers = ', '.join(f"'{account}'" for account in account_numbers)
@@ -27,9 +29,16 @@ def fetch_additional_details(account_numbers, test_flag):
     # Load the query from the SQL file, always relative to this script's directory
     sql_path = os.path.join(os.path.dirname(__file__), 'select_all.sql')
     query = load_sql_query(sql_path)
-    
-    # Inject the account numbers into the query
-    query = query.replace('{account_numbers_placeholder}', formatted_account_numbers)
+    # Inject the column names and account numbers into the query
+    query = query.format(
+        account_no_col=ACCOUNT_NO_COL,
+        arrears_balance_col=ARREARS_BALANCE_COL,
+        business_code_col=BUSINESS_CODE_COL,
+        phone_col=PHONE_COL,
+        phone2_col=PHONE2_COL,
+        customer_name_col=CUSTOMER_NAME_COL,
+        account_numbers_placeholder=formatted_account_numbers
+    )
     print(query)
 
     # Execute the query and fetch the results into a DataFrame
@@ -48,31 +57,31 @@ def populate_excel(excel_file, test_flag):
         df_accounts = pd.read_excel(excel_file, sheet_name='Sheet1')  # Adjust sheet_name if necessary
 
         # Keep only the 'Account No' column and drop all others
-        if 'Account No' not in df_accounts.columns:
-            raise Exception("Excel file must contain a column named 'Account No'.")
-        df_accounts = df_accounts[['Account No']]
+        if ACCOUNT_NO_COL not in df_accounts.columns:
+            raise Exception(f"Excel file must contain a column named '{ACCOUNT_NO_COL}'.")
+        df_accounts = df_accounts[[ACCOUNT_NO_COL]]
 
         # Normalize the Account No column (strip spaces, ensure strings)
-        df_accounts['Account No'] = df_accounts['Account No'].astype(str).str.strip()
+        df_accounts[ACCOUNT_NO_COL] = df_accounts[ACCOUNT_NO_COL].astype(str).str.strip()
 
         # Remove duplicates
         df_accounts_unique = df_accounts.drop_duplicates()
 
         # Extract normalized unique account numbers
-        account_numbers = df_accounts_unique['Account No'].tolist()
+        account_numbers = df_accounts_unique[ACCOUNT_NO_COL].tolist()
 
         # Fetch additional details using the SQL query
         df_additional_details = fetch_additional_details(account_numbers, test_flag)
 
         # Normalize the Account No column in df_additional_details
-        df_additional_details['Account No'] = df_additional_details['Account No'].astype(str).str.strip()
+        df_additional_details[ACCOUNT_NO_COL] = df_additional_details[ACCOUNT_NO_COL].astype(str).str.strip()
 
         # Print the fetched data for debugging
         print("Merged DataFrame Preview Before Saving:")
         print(df_additional_details.head())
 
         # Merge the original Excel data with the SQL query results after normalization
-        df_merged = pd.merge(df_accounts, df_additional_details, on='Account No', how='left')
+        df_merged = pd.merge(df_accounts, df_additional_details, on=ACCOUNT_NO_COL, how='left')
 
         # Save the updated DataFrame back to Excel
         df_merged.to_excel(excel_file, index=False)

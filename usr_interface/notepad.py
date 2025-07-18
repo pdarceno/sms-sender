@@ -10,12 +10,15 @@ CLEAR_CONFIRM_MESSAGE: str = "Clear all text?"
 TEXT_FILE_TYPE: tuple[str, str] = ("Text files", "*.txt")
 
 import tkinter as tk
+import datetime
 from tkinter import filedialog, messagebox
 from sms_send.main import SMSSender
 import pandas as pd
 from db_read.main import populate_excel
-from constants import SMSGLOBAL_API_KEY, SMSGLOBAL_API_SECRET, SMSGLOBAL_API_URL
-from usr_interface.scheduler import schedule_sms
+from constants import SMSGLOBAL_API_KEY, SMSGLOBAL_API_SECRET, SMSGLOBAL_API_URL, 
+                WHOLESALE_BUSINESS_CODES, ACCOUNT_NO_COL, ARREARS_BALANCE_COL, 
+                BUSINESS_CODE_COL, PHONE_COL, PHONE2_COL, CUSTOMER_NAME_COL    
+from usr_interface.scheduler import schedule_sms, schedule_batch_sms
 from usr_interface.viewer import ScheduledSMSViewer
 class Notepad:
     def __init__(self, root: tk.Tk):
@@ -95,7 +98,6 @@ class Notepad:
         schedule_btn.pack(side="left", padx=5)
 
     def _show_schedule_dialog(self):
-        import datetime
         dialog = tk.Toplevel(self.sms_window)
         dialog.title("Schedule SMS")
         dialog.geometry("300x180")
@@ -122,7 +124,6 @@ class Notepad:
                 if not number:
                     messagebox.showerror("Error", "Please enter a test phone number.")
                     return
-                from usr_interface.scheduler import schedule_sms
                 schedule_sms(number, template, scheduled_time)
                 messagebox.showinfo("Scheduled", f"Test SMS scheduled for {number} at {scheduled_time}")
             else:
@@ -130,7 +131,6 @@ class Notepad:
                 if not file_path:
                     messagebox.showerror("Error", "Please select an Excel or CSV file.")
                     return
-                from usr_interface.scheduler import schedule_batch_sms
                 schedule_batch_sms(file_path, template, scheduled_time, mode="live")
                 messagebox.showinfo("Scheduled", f"Live SMS batch scheduled for {scheduled_time}")
             dialog.destroy()
@@ -173,7 +173,6 @@ class Notepad:
 
     @staticmethod
     def get_customer_phone(phone, phone2):
-        import pandas as pd
         # Ensure any NaNs from pandas are converted to 'nan'
         phone = 'nan' if pd.isna(phone) else str(phone).strip().replace(" ", "").replace(".", "")
         phone2 = 'nan' if pd.isna(phone2) else str(phone2).strip().replace(" ", "").replace(".", "")
@@ -216,23 +215,28 @@ class Notepad:
                 else:
                     messagebox.showerror("Error", "Unsupported file type. Please select an Excel or CSV file.")
                     return
-                if 'Account No' not in df.columns:
-                    messagebox.showerror("Error", "File must contain a column named 'Account No'.")
+                if ACCOUNT_NO_COL not in df.columns:
+                    messagebox.showerror("Error", f"File must contain a column named '{ACCOUNT_NO_COL}'.")
                     return
                 failed = []
                 for idx, row in df.iterrows():
-                    account_no = str(row['Account No'])
-                    # Try to get customer_name and ar_balance from the row, fallback to blank if missing
-                    customer_name = str(row['Customer Name']) if 'Customer Name' in row and pd.notnull(row['Customer Name']) else ""
-                    ar_balance = str(row['Arrears Balance']) if 'Arrears Balance' in row and pd.notnull(row['Arrears Balance']) else ""
-                    phone = row['Phone'] if 'Phone' in row else None
-                    phone2 = row['Phone2'] if 'Phone2' in row else None
-                    destination = self.get_customer_phone(phone, phone2)
-                    sms_message = sender.replace_keywords(account_no, ar_balance, customer_name)
-                    sender.message_template = sms_message
-                    success = sender.send_sms(destination, SMSGLOBAL_API_KEY, SMSGLOBAL_API_SECRET, SMSGLOBAL_API_URL)
-                    if not success:
-                        failed.append(account_no)
+                    try:
+                        ar_balance = row[ARREARS_BALANCE_COL] if ARREARS_BALANCE_COL in row else 0
+                        business_code = str(row[BUSINESS_CODE_COL]) if BUSINESS_CODE_COL in row else ''
+                        # Only send if conditions are met
+                        if (ar_balance > 0) and (not business_code.endswith("W")) and (business_code not in WHOLESALE_BUSINESS_CODES):
+                            account_no = str(row[ACCOUNT_NO_COL])
+                            customer_name = str(row[CUSTOMER_NAME_COL]) if CUSTOMER_NAME_COL in row and pd.notnull(row[CUSTOMER_NAME_COL]) else ""
+                            phone = row[PHONE_COL] if PHONE_COL in row else None
+                            phone2 = row[PHONE2_COL] if PHONE2_COL in row else None
+                            destination = self.get_customer_phone(phone, phone2)
+                            sms_message = sender.replace_keywords(account_no, ar_balance, customer_name)
+                            sender.message_template = sms_message
+                            success = sender.send_sms(destination, SMSGLOBAL_API_KEY, SMSGLOBAL_API_SECRET, SMSGLOBAL_API_URL)
+                            if not success:
+                                failed.append(account_no)
+                    except Exception as e:
+                        failed.append(str(row.get(ACCOUNT_NO_COL, idx)))
                 if not failed:
                     messagebox.showinfo("Live SMS", "All SMS messages sent successfully.")
                 else:
