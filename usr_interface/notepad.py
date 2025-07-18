@@ -15,9 +15,11 @@ from tkinter import filedialog, messagebox
 from sms_send.main import SMSSender
 import pandas as pd
 from db_read.main import populate_excel
-from constants import SMSGLOBAL_API_KEY, SMSGLOBAL_API_SECRET, SMSGLOBAL_API_URL, 
-                WHOLESALE_BUSINESS_CODES, ACCOUNT_NO_COL, ARREARS_BALANCE_COL, 
-                BUSINESS_CODE_COL, PHONE_COL, PHONE2_COL, CUSTOMER_NAME_COL    
+from constants import (
+    SMSGLOBAL_API_KEY, SMSGLOBAL_API_SECRET, SMSGLOBAL_API_URL,
+    WHOLESALE_BUSINESS_CODES, ACCOUNT_NO_COL, ARREARS_BALANCE_COL,
+    BUSINESS_CODE_COL, PHONE_COL, PHONE2_COL, CUSTOMER_NAME_COL, TEST_DESTINATIONS
+)
 from usr_interface.scheduler import schedule_sms, schedule_batch_sms
 from usr_interface.viewer import ScheduledSMSViewer
 class Notepad:
@@ -184,7 +186,20 @@ class Notepad:
         template = self.text.get("1.0", tk.END).strip()
         sender = SMSSender(template)
         if self.send_type.get() == "test":
-            message = sender.replace_keywords("123456", "100.00", "John Doe")
+            # Use real data from tests/excel/sampler.xlsx for test SMS
+            try:
+                sample_path = "tests/excel/sampler.xlsx"
+                populate_excel(sample_path, test_flag=True)
+                df_sample = pd.read_excel(sample_path)
+                row = df_sample.iloc[0]
+                account_no = str(row[ACCOUNT_NO_COL]) if ACCOUNT_NO_COL in row else "123456"
+                ar_balance = str(row[ARREARS_BALANCE_COL]) if ARREARS_BALANCE_COL in row else "100.00"
+                customer_name = str(row[CUSTOMER_NAME_COL]) if CUSTOMER_NAME_COL in row else "John Doe"
+            except Exception:
+                account_no = "123456"
+                ar_balance = "100.00"
+                customer_name = "John Doe"
+            message = sender.replace_keywords(account_no, ar_balance, customer_name)
             number = self.test_number_entry.get()
             if not number:
                 messagebox.showerror("Error", "Please enter a test phone number.")

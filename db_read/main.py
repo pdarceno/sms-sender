@@ -2,9 +2,11 @@ import pandas as pd
 from sqlalchemy import create_engine
 import os
 import traceback
-from constants import CONNECTION_STRING_TEST, CONNECTION_STRING_TEST, 
-                ACCOUNT_NO_COL, ARREARS_BALANCE_COL, BUSINESS_CODE_COL, 
-                PHONE_COL, PHONE2_COL, CUSTOMER_NAME_COL
+from constants import (
+    CONNECTION_STRING_TEST, CONNECTION_STRING_TEST, 
+    ACCOUNT_NO_COL, ARREARS_BALANCE_COL, BUSINESS_CODE_COL, 
+    PHONE_COL, PHONE2_COL, CUSTOMER_NAME_COL
+)
 
 # Function to load the SQL query from a file
 def load_sql_query(file_path):
